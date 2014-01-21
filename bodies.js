@@ -1,15 +1,17 @@
-var bodies = (function() {
-
+var Bodies = (function () {
+  
+  function Bodies(){};
+  
   var bodies = [];
   var wasDown = false;
   var startX, startY, endX, endY;
   var radius = 10;
-  var G = 500000;
+  var G = 0.1;
   var bounce = 0.5;
   var textures = {};
   var didOverlap = false;
   var bodyGroup;
-
+  
   var combine = function(toCombine) {
     if(toCombine.length < 2){
       return;
@@ -18,7 +20,7 @@ var bodies = (function() {
     var totalPoint = new Phaser.Point(0, 0);
     var totalMass = 0;
     var totalMomentum = new Phaser.Point(0, 0);
-
+    
     for (var i = 0; i < toCombine.length; i++) {
       var body = toCombine[i];
       bodies.splice(bodies.indexOf(body), 1);
@@ -31,43 +33,63 @@ var bodies = (function() {
     }
     var position = totalPoint.divide(totalMass, totalMass);
     var radius = Math.sqrt(totalVol) / Math.PI;
-    var sprite = new Body(game, position.x, position.y, radius, totalMass);
+    var sprite = new Body(this.game, position.x, position.y, radius, totalMass);
     var vel = totalMomentum.divide(totalMass, totalMass);
     sprite.velocity = vel;
     bodies.push(sprite);
-  }
-
-  return {
-
+  };
+  
+  Bodies.prototype =  {
+    
     preload: function(){
-        game.load.image('Bodies.moon', 'moon.png', true);  
+      this.game.load.image('Bodies.texture', 'moon.png', true);  
+      this.game.world.setBounds(-Infinity, -Infinity, Infinity, Infinity);
     },
+    
+    create: function(){
       
+    },
+    
     update: function() {
-      if (game.input.activePointer.isDown && !wasDown) {
-        startX = endX = game.input.activePointer.worldX;
-        startY = endY = game.input.activePointer.worldY;
-        body = new Body(game, startX, startY, radius);
+
+      var activePointer = this.game.input.activePointer;
+      if (activePointer.isDown && !wasDown) {
+        body = new Body(this.game, activePointer.positionDown.x, activePointer.positionDown.y, radius);
         wasDown = true;
-      } else if (!game.input.activePointer.isDown && wasDown) {
+      } 
+      else if(this.game.input.activePointer.isUp && wasDown){
         wasDown = false;
         bodies.push(body);
-        body.velocity.setTo(endX - startX, endY - startY);
-      } else if (game.input.activePointer.isDown && wasDown) {
-        endX = game.input.activePointer.worldX;
-        endY = game.input.activePointer.worldY;
+        body.velocity.setTo(activePointer.x - activePointer.positionDown.x, activePointer.y - activePointer.positionDown.y);
       }
-
+      
+      if(this.game.input.keyboard.justPressed(Phaser.Keyboard.RIGHT)){
+        var currentFocus = this.game.camera.target;
+        if(bodies.indexOf(currentFocus) == -1 && bodies.length > 0){
+          this.game.camera.follow(bodies[0]);
+        }
+        else if(bodies.indexOf(currentFocus) > -1){
+          var index = bodies.indexOf(currentFocus);
+          index += 1;
+          if(index == bodies.length){
+            this.game.camera.follow(null);
+          }
+          else{
+            this.game.camera.follow(bodies[index]);
+          }
+        }
+      }
+      
       var seen = [];
       var attached = [];
       for (var i = 0; i < bodies.length; i++) {
         var body1 = bodies[i];
         for (var j = i + 1; j < bodies.length; j++) {
           var body2 = bodies[j];
-          var distance = game.physics.distanceBetween(body1, body2);
+          var distance = this.game.physics.distanceBetween(body1, body2);
           var force = G * (((body1.mass) * (body2.mass)) / (distance * distance));
-          game.physics.accelerateToObject(body1, body2, force / (body1.mass));
-          game.physics.accelerateToObject(body2, body1, force / (body2.mass));
+          this.game.physics.accelerateToObject(body1, body2, force / (body1.mass));
+          this.game.physics.accelerateToObject(body2, body1, force / (body2.mass));
         }
         
         if(seen.indexOf(body1) < 0){
@@ -76,10 +98,12 @@ var bodies = (function() {
           seen = seen.concat(bodyGroup);
         }
       }
-
+      
       for (i = 0; i < attached.length; i++) {
-        combine(attached[i]);
+        combine.call(this, attached[i]);
       }
     }
   };
-})()
+  Bodies.prototype.constructor = Bodies;
+  return Bodies;
+})();
